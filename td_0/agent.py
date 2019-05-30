@@ -10,9 +10,9 @@ class Agent():
 		self.grid_env = None
 		self.running  = None
 		self.thread   = None
-		self.gamma    = 0.99
+		self.gamma    = 0.90
 		self.alpha    = 0.1
-		self.eps      = 0.9
+		self.eps      = 0.8
 		self.n_iter   = 10000
 
 
@@ -86,6 +86,26 @@ class Agent():
 				values[3] = self.grid_env.grid_value[state[0]+1, state[1]]
 
 		return np.argmax(values)
+
+
+	#---------------------------
+	# Perform Tabular TD(0)
+	# Only 1 iteration
+	#---------------------------
+	def step_tabular_td(self):
+		if self.grid_env is None or (self.running is not None and self.running.is_set()):
+			return
+
+		n_iter      = self.n_iter
+		self.n_iter = 1
+
+		self.running = threading.Event()
+		self.running.set()
+		self.thread = threading.Thread(target=self.tabular_td, args=(self.running,))
+		self.thread.start()
+		
+		self.thread.join()
+		self.n_iter = n_iter
 
 
 	#---------------------------

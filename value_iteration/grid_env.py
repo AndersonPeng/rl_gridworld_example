@@ -25,7 +25,6 @@ class GridEnvironment(QWidget):
 		self.grid_size   = grid_size
 		self.n_x         = n_x
 		self.n_y         = n_y
-		self.agent_pos   = [0, 0]
 		self.grid_map    = np.zeros((n_x, n_y), dtype=np.int32)
 		self.grid_reward = np.zeros((n_x, n_y), dtype=np.float32)
 		self.grid_value  = np.zeros((n_x, n_y), dtype=np.float32)
@@ -35,8 +34,6 @@ class GridEnvironment(QWidget):
 		self.it          = 0
 		self.agent       = None
 
-		self.agent_pos  = [2, 3]
-		self.last_state = [2, 3]
 		self.grid_map[0, 1] = self.grid_map[4, 0] = 1
 		self.grid_map[0, 3] = self.grid_map[2, 1] = self.grid_map[4, 2] = -1
 
@@ -48,7 +45,6 @@ class GridEnvironment(QWidget):
 					self.grid_reward[x, y] = self.loss_reward
 		
 		#Init Qt gui
-		self.agent_pixmap = QPixmap("../resource/agent.png")
 		self.goal_pixmap  = QPixmap("../resource/goal.png")
 		self.hole_pixmap  = QPixmap("../resource/hole.png")
 		self.font         = QFont("Consolus", 12, QFont.Bold)
@@ -114,7 +110,7 @@ class GridEnvironment(QWidget):
 		self.win_reward_line.setGeometry(3*self.offset + self.n_x*self.grid_size + 128, 3*self.offset + 128, 128, 64)
 		self.win_reward_line.setFont(self.font)
 
-		self.loss_reward_label = QLabel("Lose reward: ", parent=self)
+		self.loss_reward_label = QLabel("Loss reward: ", parent=self)
 		self.loss_reward_label.setGeometry(2*self.offset + self.n_x*self.grid_size, 4*self.offset + 192, 128, 64)
 		self.loss_reward_label.setFont(self.font)
 		self.loss_reward_line = QLineEdit("{:.2f}".format(self.loss_reward), parent=self)
@@ -139,35 +135,11 @@ class GridEnvironment(QWidget):
 		self.gamma_slider.setStyleSheet(self.slider_style)
 		self.gamma_slider.valueChanged.connect(self.update_gamma)
 
-		self.alpha_label = QLabel("Alpha: 0.00", parent=self)
-		self.alpha_label.setGeometry(2*self.offset + self.n_x*self.grid_size, 7*self.offset + 384, 180, 64)
-		self.alpha_label.setFont(self.font)
-		self.alpha_slider = QSlider(Qt.Horizontal, parent=self)
-		self.alpha_slider.setGeometry(3*self.offset + self.n_x*self.grid_size + 180, 7*self.offset + 384, 128, 64)
-		self.alpha_slider.setMinimum(0)
-		self.alpha_slider.setMaximum(100)
-		self.alpha_slider.setTickInterval(1)
-		self.alpha_slider.setValue(0)
-		self.alpha_slider.setStyleSheet(self.slider_style)
-		self.alpha_slider.valueChanged.connect(self.update_alpha)
-
-		self.eps_label = QLabel("Epsilon: 0.00", parent=self)
-		self.eps_label.setGeometry(2*self.offset + self.n_x*self.grid_size, 8*self.offset + 448, 180, 64)
-		self.eps_label.setFont(self.font)
-		self.eps_slider = QSlider(Qt.Horizontal, parent=self)
-		self.eps_slider.setGeometry(3*self.offset + self.n_x*self.grid_size + 180, 8*self.offset + 448, 128, 64)
-		self.eps_slider.setMinimum(0)
-		self.eps_slider.setMaximum(100)
-		self.eps_slider.setTickInterval(1)
-		self.eps_slider.setValue(0)
-		self.eps_slider.setStyleSheet(self.slider_style)
-		self.eps_slider.valueChanged.connect(self.update_eps)
-
 		self.trans_label = QLabel("Trans. Prob.: {:.2f}".format(self.trans_prob), parent=self)
-		self.trans_label.setGeometry(2*self.offset + self.n_x*self.grid_size, 9*self.offset + 512, 180, 64)
+		self.trans_label.setGeometry(2*self.offset + self.n_x*self.grid_size, 7*self.offset + 384, 180, 64)
 		self.trans_label.setFont(self.font)
 		self.trans_slider = QSlider(Qt.Horizontal, parent=self)
-		self.trans_slider.setGeometry(3*self.offset + self.n_x*self.grid_size + 180, 9*self.offset + 512, 128, 64)
+		self.trans_slider.setGeometry(3*self.offset + self.n_x*self.grid_size + 180, 7*self.offset + 384, 128, 64)
 		self.trans_slider.setMinimum(0)
 		self.trans_slider.setMaximum(100)
 		self.trans_slider.setTickInterval(1)
@@ -176,74 +148,8 @@ class GridEnvironment(QWidget):
 		self.trans_slider.valueChanged.connect(self.update_trans_prob)
 
 		self.it_label = QLabel("Iteration: {:d}".format(self.it), parent=self)
-		self.it_label.setGeometry(2*self.offset + self.n_x*self.grid_size, 9*self.offset + 576, 256, 64)
+		self.it_label.setGeometry(2*self.offset + self.n_x*self.grid_size, 8*self.offset + 448, 256, 64)
 		self.it_label.setFont(self.font)
-
-
-	#---------------------------
-	# Reset
-	#---------------------------
-	def reset(self):
-		self.agent_pos[0] = 2
-		self.agent_pos[1] = 3
-		return self.agent_pos
-
-
-	#---------------------------
-	# Step
-	#---------------------------
-	def step(self, action):
-		#Environment transition probability
-		rand_val = np.random.uniform(0, 1)
-		tmp      = (1 - self.trans_prob) / 2.
-
-		if rand_val < tmp:
-			if action == 0:   action = 2	#up to left
-			elif action == 1: action = 3	#down to right
-			elif action == 2: action = 1	#left to down
-			elif action == 3: action = 0	#right to up
-		elif rand_val > 1 - tmp:
-			if action == 0:   action = 3	#up to right
-			elif action == 1: action = 2	#down to left
-			elif action == 2: action = 0	#left to up
-			elif action == 3: action = 1	#right to down
-
-		#Action 0: Up
-		if action == 0:
-			self.agent_pos[1] -= 1
-			if self.agent_pos[1] < 0:
-				self.agent_pos[1] = 0
-
-		#Action 1: Down
-		elif action == 1:
-			self.agent_pos[1] += 1
-			if self.agent_pos[1] >= self.n_y:
-				self.agent_pos[1] = self.n_y - 1
-		
-		#Action 2: Left
-		elif action == 2:
-			self.agent_pos[0] -= 1
-			if self.agent_pos[0] < 0:
-				self.agent_pos[0] = 0
-
-		#Action 3: Right
-		elif action == 3:
-			self.agent_pos[0] += 1
-			if self.agent_pos[0] >= self.n_x:
-				self.agent_pos[0] = self.n_x - 1
-
-		#Get next step
-		reward = self.grid_reward[self.agent_pos[0], self.agent_pos[1]]
-
-		if self.grid_map[self.agent_pos[0], self.agent_pos[1]] != 0:
-			done = True
-			self.it += 1
-		else:
-			done = False
-
-		self.update()
-
-		return self.agent_pos, reward, done
 
 
 	#---------------------------
@@ -260,18 +166,16 @@ class GridEnvironment(QWidget):
 	def set_agent(self, agent):
 		if self.agent is not None:
 			self.agent.grid_env = None
-			self.start_btn.clicked.disconnect(self.agent.start_tabular_td)
-			self.stop_btn.clicked.disconnect(self.agent.stop_tabular_td)
-			self.step_btn.clicked.disconnect(self.agent.step_tabular_td)
+			self.start_btn.clicked.disconnect(self.agent.start_value_iteration)
+			self.stop_btn.clicked.disconnect(self.agent.stop_value_iteration)
+			self.step_btn.clicked.disconnect(self.agent.step_value_iteration)
 
 		self.agent = agent
 		self.agent.grid_env = self
-		self.start_btn.clicked.connect(self.agent.start_tabular_td)
-		self.stop_btn.clicked.connect(self.agent.stop_tabular_td)
-		self.step_btn.clicked.connect(self.agent.step_tabular_td)
+		self.start_btn.clicked.connect(self.agent.start_value_iteration)
+		self.stop_btn.clicked.connect(self.agent.stop_value_iteration)
+		self.step_btn.clicked.connect(self.agent.step_value_iteration)
 		self.gamma_slider.setValue(self.agent.gamma * 100)
-		self.alpha_slider.setValue(self.agent.alpha * 100)
-		self.eps_slider.setValue(self.agent.eps * 100)
 
 
 	#---------------------------
@@ -307,16 +211,6 @@ class GridEnvironment(QWidget):
 
 
 	#---------------------------
-	# Update alpha
-	#---------------------------
-	def update_alpha(self):
-		if self.agent is None: return
-
-		self.agent.alpha = self.alpha_slider.value() / 100.0
-		self.alpha_label.setText("Alpha: {:.2f}".format(self.agent.alpha))
-
-
-	#---------------------------
 	# Update gamma
 	#---------------------------
 	def update_gamma(self):
@@ -324,16 +218,6 @@ class GridEnvironment(QWidget):
 
 		self.agent.gamma = self.gamma_slider.value() / 100.0
 		self.gamma_label.setText("Gamma: {:.2f}".format(self.agent.gamma))
-
-
-	#---------------------------
-	# Update epsilon
-	#---------------------------
-	def update_eps(self):
-		if self.agent is None: return
-
-		self.agent.eps = self.eps_slider.value() / 100.0
-		self.eps_label.setText("Epsilon: {:.2f}".format(self.agent.eps))
 
 
 	#---------------------------
@@ -349,6 +233,59 @@ class GridEnvironment(QWidget):
 	#---------------------------
 	def update_ui(self):
 		self.it_label.setText("Iteration: {:d}".format(self.it))
+
+
+	#---------------------------
+	# Check if valid
+	#---------------------------
+	def valid(self, x, y):
+		if x < 0 or x >= self.n_x or y < 0 or y >= self.n_y:
+			return False
+		return True
+
+
+	#---------------------------
+	# Get transition probability
+	#---------------------------
+	def get_trans_prob(self, x, y, a, x_, y_):
+		dx = x_ - x
+		dy = y_ - y
+		trans_prob_other = (1. - self.trans_prob) / 2.
+
+		#Up
+		if a == 0:
+			if dx == 0 and dy == -1:	#Up
+				return self.trans_prob
+			elif dx == 1 and dy == 0:	#Right
+				return trans_prob_other
+			elif dx == -1 and dy == 0:	#Left
+				return trans_prob_other
+		#Down
+		elif a == 1:
+			if dx == 0 and dy == 1:		#Down
+				return self.trans_prob
+			elif dx == 1 and dy == 0:	#Right
+				return trans_prob_other
+			elif dx == -1 and dy == 0:	#Left
+				return trans_prob_other
+		#Left
+		elif a == 2:
+			if dx == -1 and dy == 0:	#Left
+				return self.trans_prob
+			elif dx == 0 and dy == 1:	#Down
+				return trans_prob_other
+			elif dx == 0 and dy == -1:	#Up
+				return trans_prob_other
+		#Right
+		elif a == 3:
+			if dx == 1 and dy == 0:		#Right
+				return self.trans_prob
+			elif dx == 0 and dy == 1:	#Down
+				return trans_prob_other
+			elif dx == 0 and dy == -1:	#Up
+				return trans_prob_other
+		
+		return 0
 
 
 	#---------------------------
@@ -446,51 +383,7 @@ class GridEnvironment(QWidget):
 						"{:.2f}".format(self.grid_value[x, y])
 					)
 
-		#Draw agent
-		painter.drawPixmap(QRect(
-			self.offset + self.agent_pos[0]*self.grid_size, 
-			self.offset + self.agent_pos[1]*self.grid_size, 
-			self.grid_size, 
-			self.grid_size
-		), self.agent_pixmap)
-
 		painter.end()
-
-
-	#---------------------------
-	# Qt key press event
-	#---------------------------
-	def keyPressEvent(self, e):
-		if self.agent is not None and self.agent.is_running():
-			return
-
-		key = e.key()
-
-		if key == QtCore.Qt.Key_W:
-			state, reward, done = self.step(0)
-
-		elif key == QtCore.Qt.Key_S:
-			state, reward, done = self.step(1)
-		
-		elif key == QtCore.Qt.Key_A:
-			state, reward, done = self.step(2)
-
-		elif key == QtCore.Qt.Key_D:
-			state, reward, done = self.step(3)
-		
-		else:
-			return
-
-		value      = self.grid_value[state[0], state[1]]
-		last_value = self.grid_value[self.last_state[0], self.last_state[1]]
-
-		self.grid_value[self.last_state[0], self.last_state[1]] = self.agent.tabular_td_update(last_value, value, reward)
-		self.last_state = state.copy()
-
-		if done:
-			self.last_state = self.reset()
-
-		self.update()
 
 
 	#---------------------------
@@ -498,4 +391,4 @@ class GridEnvironment(QWidget):
 	#---------------------------
 	def closeEvent(self, e):
 		if self.agent is not None:
-			self.agent.stop_tabular_td()
+			self.agent.stop_value_iteration()
