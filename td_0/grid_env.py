@@ -421,8 +421,7 @@ class GridEnvironment(QWidget):
 							alpha = 0
 						else:
 							alpha = self.grid_value[x, y] / self.loss_reward
-
-						if alpha > 1: alpha = 1.
+							if alpha > 1: alpha = 1.
 
 						c = red * alpha + white * (1. - alpha)
 					else:
@@ -430,8 +429,7 @@ class GridEnvironment(QWidget):
 							alpha = 0
 						else:
 							alpha = self.grid_value[x, y] / self.win_reward
-
-						if alpha > 1: alpha = 1.
+							if alpha > 1: alpha = 1.
 
 						c = green * alpha + white * (1. - alpha)
 

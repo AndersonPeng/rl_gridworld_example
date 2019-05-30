@@ -35,6 +35,7 @@ class Agent():
 				value      = self.grid_env.grid_value[state[0], state[1]]
 				last_value = self.grid_env.grid_value[last_state[0], last_state[1]]
 
+				#V(s) = V(s) + alpha * [r(s, a) + gamma*V(s') - V(s)]
 				self.grid_env.grid_value[last_state[0], last_state[1]] = last_value + self.alpha*(reward + self.gamma*value - last_value)
 				last_state = state.copy()
 
