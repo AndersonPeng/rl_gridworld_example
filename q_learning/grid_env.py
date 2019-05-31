@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QPushButton, QLineEdit, QLabel, QSlider
-from PyQt5.QtGui import QPainter, QBrush, QColor, QPixmap, QFont
+from PyQt5.QtGui import QPainter, QBrush, QColor, QPixmap, QFont, QPainterPath, QPen
 from PyQt5.QtCore import Qt, QRect, QTimer
 from PyQt5 import QtCore
 import numpy as np
@@ -21,19 +21,19 @@ class GridEnvironment(QWidget):
 		super().__init__()
 		
 		#Init environment
-		self.offset      = 16
-		self.grid_size   = grid_size
-		self.n_x         = n_x
-		self.n_y         = n_y
-		self.agent_pos   = [0, 0]
-		self.grid_map    = np.zeros((n_x, n_y), dtype=np.int32)
-		self.grid_reward = np.zeros((n_x, n_y), dtype=np.float32)
-		self.grid_value  = np.zeros((n_x, n_y), dtype=np.float32)
-		self.win_reward  = 4
-		self.loss_reward = -4
-		self.trans_prob  = 0.8
-		self.it          = 0
-		self.agent       = None
+		self.offset       = 16
+		self.grid_size    = grid_size
+		self.n_x          = n_x
+		self.n_y          = n_y
+		self.agent_pos    = [0, 0]
+		self.grid_map     = np.zeros((n_x, n_y), dtype=np.int32)
+		self.grid_reward  = np.zeros((n_x, n_y), dtype=np.float32)
+		self.grid_q_value = np.zeros((n_x, n_y, 4), dtype=np.float32)
+		self.win_reward   = 4
+		self.loss_reward  = -4
+		self.trans_prob   = 0.8
+		self.it           = 0
+		self.agent        = None
 
 		self.agent_pos  = [2, 3]
 		self.last_state = [2, 3]
@@ -255,20 +255,59 @@ class GridEnvironment(QWidget):
 
 
 	#---------------------------
+	# Draw a triangle
+	#---------------------------
+	def draw_triangle(self, painter, p1, p2, p3, color=QColor(255, 255, 255)):
+		path = QPainterPath()
+		path.moveTo(p1[0], p1[1])
+		path.lineTo(p2[0], p2[1])
+		path.lineTo(p3[0], p3[1])
+		path.lineTo(p1[0], p1[1])
+
+		painter.fillPath(path, QBrush(color))
+
+
+	#---------------------------
+	# Draw border
+	#---------------------------
+	def draw_border(self, painter, color=QColor(0, 0, 0)):
+		trans_color = QColor(0, 0, 0)
+		trans_color.setAlphaF(0.0)
+		painter.setBrush(trans_color)
+		painter.setPen(QPen(Qt.black, 1))
+
+		for x in range(self.n_x):
+			for y in range(self.n_y):
+				path = QPainterPath()
+				path.moveTo(self.offset + x*self.grid_size, self.offset + y*self.grid_size)
+				path.lineTo(self.offset + (x+1)*self.grid_size, self.offset + y*self.grid_size)
+				path.lineTo(self.offset + (x+1)*self.grid_size, self.offset + (y+1)*self.grid_size)
+				path.lineTo(self.offset + x*self.grid_size, self.offset + (y+1)*self.grid_size)
+				path.lineTo(self.offset + x*self.grid_size, self.offset + y*self.grid_size)
+
+				if self.grid_map[x, y] == 0:
+					path.lineTo(self.offset + (x+1)*self.grid_size, self.offset + (y+1)*self.grid_size)
+					path.moveTo(self.offset + (x+1)*self.grid_size, self.offset + y*self.grid_size)
+					path.lineTo(self.offset + x*self.grid_size, self.offset + (y+1)*self.grid_size)
+
+				painter.drawPath(path)
+
+
+	#---------------------------
 	# Set agent
 	#---------------------------
 	def set_agent(self, agent):
 		if self.agent is not None:
 			self.agent.grid_env = None
-			self.start_btn.clicked.disconnect(self.agent.start_tabular_td)
-			self.stop_btn.clicked.disconnect(self.agent.stop_tabular_td)
-			self.step_btn.clicked.disconnect(self.agent.step_tabular_td)
+			self.start_btn.clicked.disconnect(self.agent.start_q_learning)
+			self.stop_btn.clicked.disconnect(self.agent.stop_q_learning)
+			self.step_btn.clicked.disconnect(self.agent.step_q_learning)
 
 		self.agent = agent
 		self.agent.grid_env = self
-		self.start_btn.clicked.connect(self.agent.start_tabular_td)
-		self.stop_btn.clicked.connect(self.agent.stop_tabular_td)
-		self.step_btn.clicked.connect(self.agent.step_tabular_td)
+		self.start_btn.clicked.connect(self.agent.start_q_learning)
+		self.stop_btn.clicked.connect(self.agent.stop_q_learning)
+		self.step_btn.clicked.connect(self.agent.step_q_learning)
 		self.gamma_slider.setValue(self.agent.gamma * 100)
 		self.alpha_slider.setValue(self.agent.alpha * 100)
 		self.eps_slider.setValue(self.agent.eps * 100)
@@ -280,7 +319,8 @@ class GridEnvironment(QWidget):
 	def clear_grid_value(self):
 		for x in range(self.n_x):
 			for y in range(self.n_y):
-				self.grid_value[x, y] = 0
+				for a in range(4):
+					self.grid_q_value[x, y, a] = 0
 
 		self.it = 0
 		self.update()
@@ -416,33 +456,82 @@ class GridEnvironment(QWidget):
 
 				#Draw grid
 				else:
-					if self.grid_value[x, y] < 0:
-						if self.loss_reward == 0:
-							alpha = 0
+					for a in range(4):
+						if self.grid_q_value[x, y, a] < 0:
+							if self.loss_reward == 0:
+								alpha = 0
+							else:
+								alpha = self.grid_q_value[x, y, a] / self.loss_reward
+								if alpha > 1: alpha = 1.
+
+							c = red * alpha + white * (1. - alpha)
 						else:
-							alpha = self.grid_value[x, y] / self.loss_reward
-							if alpha > 1: alpha = 1.
+							if self.win_reward == 0:
+								alpha = 0
+							else:
+								alpha = self.grid_q_value[x, y, a] / self.win_reward
+								if alpha > 1: alpha = 1.
 
-						c = red * alpha + white * (1. - alpha)
-					else:
-						if self.win_reward == 0:
-							alpha = 0
-						else:
-							alpha = self.grid_value[x, y] / self.win_reward
-							if alpha > 1: alpha = 1.
+							c = green * alpha + white * (1. - alpha)
 
-						c = green * alpha + white * (1. - alpha)
-
-					self.draw_rect(
-						painter,
-						color=QColor(int(c[0]), int(c[1]), int(c[2])), 
-						rect=QRect(self.offset + x*self.grid_size, self.offset + y*self.grid_size, self.grid_size, self.grid_size)
-					)
-					painter.drawText(
-						QRect(self.offset + x*self.grid_size, self.offset + y*self.grid_size, self.grid_size, self.grid_size), 
-						Qt.AlignCenter,
-						"{:.2f}".format(self.grid_value[x, y])
-					)
+						#Up
+						if a == 0:
+							self.draw_triangle(
+								painter,
+								(self.offset + x*self.grid_size, self.offset + y*self.grid_size),
+								(self.offset + (x+1)*self.grid_size, self.offset + y*self.grid_size),
+								(self.offset + (x+0.5)*self.grid_size, self.offset + (y+0.5)*self.grid_size),
+								color=QColor(int(c[0]), int(c[1]), int(c[2]))
+							)
+							painter.drawText(
+								QRect(self.offset + x*self.grid_size, self.offset + (y-0.3)*self.grid_size, self.grid_size, self.grid_size), 
+								Qt.AlignCenter,
+								"{:.2f}".format(self.grid_q_value[x, y, a])
+							)
+						#Down
+						elif a == 1:
+							self.draw_triangle(
+								painter,
+								(self.offset + x*self.grid_size, self.offset + (y+1)*self.grid_size),
+								(self.offset + (x+1)*self.grid_size, self.offset + (y+1)*self.grid_size),
+								(self.offset + (x+0.5)*self.grid_size, self.offset + (y+0.5)*self.grid_size),
+								color=QColor(int(c[0]), int(c[1]), int(c[2]))
+							)
+							painter.drawText(
+								QRect(self.offset + x*self.grid_size, self.offset + (y+0.3)*self.grid_size, self.grid_size, self.grid_size), 
+								Qt.AlignCenter,
+								"{:.2f}".format(self.grid_q_value[x, y, a])
+							)
+						#Left
+						elif a == 2:
+							self.draw_triangle(
+								painter,
+								(self.offset + x*self.grid_size, self.offset + y*self.grid_size),
+								(self.offset + x*self.grid_size, self.offset + (y+1)*self.grid_size),
+								(self.offset + (x+0.5)*self.grid_size, self.offset + (y+0.5)*self.grid_size),
+								color=QColor(int(c[0]), int(c[1]), int(c[2]))
+							)
+							painter.drawText(
+								QRect(self.offset + (x-0.3)*self.grid_size, self.offset + y*self.grid_size, self.grid_size, self.grid_size), 
+								Qt.AlignCenter,
+								"{:.2f}".format(self.grid_q_value[x, y, a])
+							)
+						#Right
+						elif a == 3:
+							self.draw_triangle(
+								painter,
+								(self.offset + (x+1)*self.grid_size, self.offset + y*self.grid_size),
+								(self.offset + (x+1)*self.grid_size, self.offset + (y+1)*self.grid_size),
+								(self.offset + (x+0.5)*self.grid_size, self.offset + (y+0.5)*self.grid_size),
+								color=QColor(int(c[0]), int(c[1]), int(c[2]))
+							)
+							painter.drawText(
+								QRect(self.offset + (x+0.3)*self.grid_size, self.offset + y*self.grid_size, self.grid_size, self.grid_size), 
+								Qt.AlignCenter,
+								"{:.2f}".format(self.grid_q_value[x, y, a])
+							)
+						
+		self.draw_border(painter)
 
 		#Draw agent
 		painter.drawPixmap(QRect(
@@ -464,25 +553,17 @@ class GridEnvironment(QWidget):
 
 		key = e.key()
 
-		if key == QtCore.Qt.Key_W:
-			state, reward, done = self.step(0)
+		if key == QtCore.Qt.Key_W:   action = 0
+		elif key == QtCore.Qt.Key_S: action = 1
+		elif key == QtCore.Qt.Key_A: action = 2
+		elif key == QtCore.Qt.Key_D: action = 3
+		else: return
 
-		elif key == QtCore.Qt.Key_S:
-			state, reward, done = self.step(1)
-		
-		elif key == QtCore.Qt.Key_A:
-			state, reward, done = self.step(2)
+		q_value             = self.grid_q_value[self.last_state[0], self.last_state[1], action]
+		state, reward, done = self.step(action)
+		max_next_q_value    = np.max(self.grid_q_value[state[0], state[1], :])
 
-		elif key == QtCore.Qt.Key_D:
-			state, reward, done = self.step(3)
-		
-		else:
-			return
-
-		value      = self.grid_value[state[0], state[1]]
-		last_value = self.grid_value[self.last_state[0], self.last_state[1]]
-
-		self.grid_value[self.last_state[0], self.last_state[1]] = self.agent.tabular_td_update(last_value, value, reward)
+		self.grid_q_value[self.last_state[0], self.last_state[1], action] = self.agent.q_learning_update(q_value, max_next_q_value, reward)
 		self.last_state = state.copy()
 
 		if done:
@@ -496,4 +577,4 @@ class GridEnvironment(QWidget):
 	#---------------------------
 	def closeEvent(self, e):
 		if self.agent is not None:
-			self.agent.stop_tabular_td()
+			self.agent.stop_q_learning()
