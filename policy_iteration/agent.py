@@ -73,37 +73,48 @@ class Agent():
 	# Choose action according to value
 	#---------------------------
 	def choose_action(self, state):
-		values = np.array([-1024, -1024, -1024, -1024], dtype=np.float32)
+		# a = argmax_a{sum_s'{P(s'|s, a)[r(s, a) + gamma * V(s')]}}
+		Q = np.zeros(4)
+		x = state[0]
+		y = state[1]
 
 		#Up
-		if state[1] - 1 >= 0:
-			if self.grid_env.grid_map[state[0], state[1]-1] == 1:
+		if y - 1 >= 0:
+			if self.grid_env.grid_map[x, y-1] == 1:
 				return 0
-			elif self.grid_env.grid_map[state[0], state[1]-1] == 0:
-				values[0] = self.grid_env.grid_value[state[0], state[1]-1]
+			elif self.grid_env.grid_map[x, y-1] == 0:
+				for x_ in range(self.grid_env.n_x):
+					for y_ in range(self.grid_env.n_y):
+						Q[0] += self.grid_env.grid_trans_prob[x, y, 0, x_, y_] * (self.grid_env.grid_reward[x_, y_] + self.gamma*self.grid_env.grid_value[x_, y_])
 
 		#Down
-		if state[1] + 1 < self.grid_env.n_y:
-			if self.grid_env.grid_map[state[0], state[1]+1] == 1:
+		if y + 1 < self.grid_env.n_y:
+			if self.grid_env.grid_map[x, y+1] == 1:
 				return 1
-			elif self.grid_env.grid_map[state[0], state[1]+1] == 0:
-				values[1] = self.grid_env.grid_value[state[0], state[1]+1]
+			elif self.grid_env.grid_map[x, y+1] == 0:
+				for x_ in range(self.grid_env.n_x):
+					for y_ in range(self.grid_env.n_y):
+						Q[1] += self.grid_env.grid_trans_prob[x, y, 1, x_, y_] * (self.grid_env.grid_reward[x_, y_] + self.gamma*self.grid_env.grid_value[x_, y_])
 
 		#Left
-		if state[0] - 1 >= 0:
-			if self.grid_env.grid_map[state[0]-1, state[1]] == 1:
+		if x - 1 >= 0:
+			if self.grid_env.grid_map[x-1, y] == 1:
 				return 2
-			elif self.grid_env.grid_map[state[0]-1, state[1]] == 0:
-				values[2] = self.grid_env.grid_value[state[0]-1, state[1]]
+			elif self.grid_env.grid_map[x-1, y] == 0:
+				for x_ in range(self.grid_env.n_x):
+					for y_ in range(self.grid_env.n_y):
+						Q[2] += self.grid_env.grid_trans_prob[x, y, 2, x_, y_] * (self.grid_env.grid_reward[x_, y_] + self.gamma*self.grid_env.grid_value[x_, y_])
 
 		#Right
-		if state[0] + 1 < self.grid_env.n_x:
-			if self.grid_env.grid_map[state[0]+1, state[1]] == 1:
+		if x + 1 < self.grid_env.n_x:
+			if self.grid_env.grid_map[x+1, y] == 1:
 				return 3
-			elif self.grid_env.grid_map[state[0]+1, state[1]] == 0:
-				values[3] = self.grid_env.grid_value[state[0]+1, state[1]]
+			elif self.grid_env.grid_map[x+1, y] == 0:
+				for x_ in range(self.grid_env.n_x):
+					for y_ in range(self.grid_env.n_y):
+						Q[3] += self.grid_env.grid_trans_prob[x, y, 3, x_, y_] * (self.grid_env.grid_reward[x_, y_] + self.gamma*self.grid_env.grid_value[x_, y_])
 
-		return np.argmax(values)
+		return np.argmax(Q)
 
 
 	#---------------------------
