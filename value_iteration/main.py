@@ -7,8 +7,9 @@ import sys
 if __name__ == "__main__":
 	app = QApplication(sys.argv)
 	agent = Agent()
-	grid_evn = GridEnvironment(name="Value Iteration Example")
-	grid_evn.set_agent(agent)
-	grid_evn.show()
+	grid_env = GridEnvironment(name="Value Iteration Example")
+	grid_env.set_agent(agent)
+	grid_env.setFixedSize(1024, 768)
+	grid_env.show()
 	
 	sys.exit(app.exec_())

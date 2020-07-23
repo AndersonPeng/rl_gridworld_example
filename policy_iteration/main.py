@@ -7,7 +7,7 @@ import sys
 if __name__ == "__main__":
 	app = QApplication(sys.argv)
 	agent = Agent()
-	grid_env = GridEnvironment(name="Q-Learning Example")
+	grid_env = GridEnvironment(name="Policy Iteration Example")
 	grid_env.set_agent(agent)
 	grid_env.setFixedSize(1024, 768)
 	grid_env.show()
