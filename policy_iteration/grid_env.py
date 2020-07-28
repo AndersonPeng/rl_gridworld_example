@@ -461,4 +461,4 @@ class GridEnvironment(QWidget):
 	#---------------------------
 	def closeEvent(self, e):
 		if self.agent is not None:
-			self.agent.stop_value_iteration()
+			self.agent.stop_policy_iteration()

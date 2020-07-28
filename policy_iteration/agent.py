@@ -11,7 +11,7 @@ class Agent():
 		self.running  = None
 		self.thread   = None
 		self.gamma    = 0.9
-		self.n_iter   = 1000
+		self.n_iter   = 100
 
 
 	#---------------------------

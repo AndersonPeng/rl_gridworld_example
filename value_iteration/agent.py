@@ -11,7 +11,7 @@ class Agent():
 		self.running  = None
 		self.thread   = None
 		self.gamma    = 0.9
-		self.n_iter   = 1000
+		self.n_iter   = 100
 
 
 	#---------------------------
@@ -41,10 +41,10 @@ class Agent():
 
 					for x_ in range(self.grid_env.n_x):
 						for y_ in range(self.grid_env.n_y):
-							Q[a] += self.grid_env.grid_trans_prob[x, y, a, x_, y_] * self.grid_env.grid_value[x_, y_]
+							Q[a] += self.grid_env.grid_trans_prob[x, y, a, x_, y_] * (self.grid_env.grid_reward[x_, y_] + self.gamma * self.grid_env.grid_value[x_, y_])
 
-				#V(s) = max_a{r(s, a) + gamma * sum(P(s'|s, a) * V(s'))}
-				grid_value_tmp[x, y] = self.grid_env.grid_reward[x, y] + self.gamma*max(Q)
+				#V(s) = max_a{sum_s'{P(s'|s, a)[r(s, a) + gamma * V(s')]}} = max_a{Q(s, a)}
+				grid_value_tmp[x, y] = max(Q)
 
 		self.grid_env.grid_value[:] = grid_value_tmp[:]
 
