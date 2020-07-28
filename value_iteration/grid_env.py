@@ -26,6 +26,7 @@ class GridEnvironment(QWidget):
 		self.n_x             = n_x
 		self.n_y             = n_y
 		self.grid_map        = np.zeros((n_x, n_y), dtype=np.int32)
+		self.grid_policy     = np.zeros((n_x, n_y), dtype=np.int32)
 		self.grid_reward     = np.zeros((n_x, n_y), dtype=np.float32)
 		self.grid_value      = np.zeros((n_x, n_y), dtype=np.float32)
 		self.grid_trans_prob = np.zeros((n_x, n_y, 4, n_x, n_y), dtype=np.float32)
@@ -431,6 +432,11 @@ class GridEnvironment(QWidget):
 
 						c = green * alpha + white * (1. - alpha)
 
+					if self.grid_policy[x, y] == 0: arrow = "^"
+					elif self.grid_policy[x, y] == 1: arrow = "v"
+					elif self.grid_policy[x, y] == 2: arrow = "<"
+					else: arrow = ">"
+
 					self.draw_rect(
 						painter,
 						color=QColor(int(c[0]), int(c[1]), int(c[2])), 
@@ -440,6 +446,11 @@ class GridEnvironment(QWidget):
 						QRect(self.offset + x*self.grid_size, self.offset + y*self.grid_size, self.grid_size, self.grid_size), 
 						Qt.AlignCenter,
 						"{:.2f}".format(self.grid_value[x, y])
+					)
+					painter.drawText(
+						QRect(self.offset + x*self.grid_size, self.offset + y*self.grid_size + 20, self.grid_size, self.grid_size), 
+						Qt.AlignCenter,
+						arrow
 					)
 
 		painter.end()

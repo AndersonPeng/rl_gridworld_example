@@ -47,8 +47,62 @@ class Agent():
 				grid_value_tmp[x, y] = self.grid_env.grid_reward[x, y] + self.gamma*max(Q)
 
 		self.grid_env.grid_value[:] = grid_value_tmp[:]
+
+		#For each state
+		for x in range(self.grid_env.n_x):
+			for y in range(self.grid_env.n_y):
+				self.grid_env.grid_policy[x, y] = self.choose_action((x, y))
+		
 		self.grid_env.update()
 		self.grid_env.it += 1
+
+
+	#---------------------------
+	# Choose action according to value
+	#---------------------------
+	def choose_action(self, state):
+		# a = argmax_a{sum_s'{P(s'|s, a)[r(s, a) + gamma * V(s')]}}
+		Q = np.zeros(4)
+		x = state[0]
+		y = state[1]
+
+		#Up
+		if y - 1 >= 0:
+			if self.grid_env.grid_map[x, y-1] == 1:
+				return 0
+			elif self.grid_env.grid_map[x, y-1] == 0:
+				for x_ in range(self.grid_env.n_x):
+					for y_ in range(self.grid_env.n_y):
+						Q[0] += self.grid_env.grid_trans_prob[x, y, 0, x_, y_] * (self.grid_env.grid_reward[x_, y_] + self.gamma*self.grid_env.grid_value[x_, y_])
+
+		#Down
+		if y + 1 < self.grid_env.n_y:
+			if self.grid_env.grid_map[x, y+1] == 1:
+				return 1
+			elif self.grid_env.grid_map[x, y+1] == 0:
+				for x_ in range(self.grid_env.n_x):
+					for y_ in range(self.grid_env.n_y):
+						Q[1] += self.grid_env.grid_trans_prob[x, y, 1, x_, y_] * (self.grid_env.grid_reward[x_, y_] + self.gamma*self.grid_env.grid_value[x_, y_])
+
+		#Left
+		if x - 1 >= 0:
+			if self.grid_env.grid_map[x-1, y] == 1:
+				return 2
+			elif self.grid_env.grid_map[x-1, y] == 0:
+				for x_ in range(self.grid_env.n_x):
+					for y_ in range(self.grid_env.n_y):
+						Q[2] += self.grid_env.grid_trans_prob[x, y, 2, x_, y_] * (self.grid_env.grid_reward[x_, y_] + self.gamma*self.grid_env.grid_value[x_, y_])
+
+		#Right
+		if x + 1 < self.grid_env.n_x:
+			if self.grid_env.grid_map[x+1, y] == 1:
+				return 3
+			elif self.grid_env.grid_map[x+1, y] == 0:
+				for x_ in range(self.grid_env.n_x):
+					for y_ in range(self.grid_env.n_y):
+						Q[3] += self.grid_env.grid_trans_prob[x, y, 3, x_, y_] * (self.grid_env.grid_reward[x_, y_] + self.gamma*self.grid_env.grid_value[x_, y_])
+
+		return np.argmax(Q)
 
 
 	#---------------------------
