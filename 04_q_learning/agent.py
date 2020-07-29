@@ -13,7 +13,7 @@ class Agent():
 		self.gamma    = 0.9
 		self.alpha    = 0.1
 		self.eps      = 0.8
-		self.n_iter   = 1000
+		self.n_iter   = 100
 
 
 	#---------------------------
